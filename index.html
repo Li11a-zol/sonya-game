@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>help Sonya finde  jagermeister </title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: #f7f7f7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+
+    #gameCanvas {
+      background-color: #f7f7f7;
+      border-bottom: 2px solid #535353;
+      max-width: 100%;
+      touch-action: manipulation;
+    }
+
+    .instructions {
+      margin-top: 15px;
+      color: #535353;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="gameCanvas" width="600" height="220"></canvas>
+  <p class="instructions">Натисніть на екран, щоб стрибнути</p>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // 1. ЗАВАНТАЖЕННЯ ЗОБРАЖЕНЬ З ВАШИХ ФАЙЛІВ
+    const playerImg = new Image();
+    playerImg.src = "соня1.png"; // Файл персонажа
+
+    const obstacleImg = new Image();
+    obstacleImg.src = "перешкода.png"; // Файл перешкоди (Лілія)
+
+    const prizeImg = new Image();
+    prizeImg.src = "Єгер.png"; // Файл головного призу (Єгер)
+
+    // Параметри гри
+    let jumpsCount = 0;
+    const targetJumps = 18; // Мета: 18 стрибків
+    let gameOver = false;
+    let gameWon = false;
+    let frameCount = 0;
+
+    // Персонаж (Соня)
+    const player = {
+      x: 170,
+      y: 165,
+      width: 100,
+      height: 100,
+      dy: 0,
+      gravity: 0.9,
+      jumpForce: -20,
+      isGrounded: true
+    };
+
+    // Перешкоди (Квіти)
+    const obstacles = [];
+    const obstacleSpeed = 6;
+
+    // Стрибок
+    function jump() {
+      if (player.isGrounded && !gameOver && !gameWon) {
+        player.dy = player.jumpForce;
+        player.isGrounded = false;
+      } else if (gameOver || gameWon) {
+        resetGame();
+      }
+    }
+
+    // Керування (Тап для телефонів та Пробіл для ПК)
+    window.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      jump();
+    }, { passive: false });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") jump();
+    });
+
+    // Створення перешкоди
+    function spawnObstacle() {
+      obstacles.push({
+        x: canvas.width,
+        y: 180,
+        width: 30,
+        height: 30,
+        cleared: false
+      });
+    }
+
+    // Перезапуск гри
+    function resetGame() {
+      jumpsCount = 0;
+      obstacles.length = 0;
+      player.y = 130;
+      player.dy = 0;
+      player.isGrounded = true;
+      gameOver = false;
+      gameWon = false;
+      requestAnimationFrame(update);
+    }
+
+    // Головний ігровий цикл
+    function update() {
+      if (gameOver || gameWon) return;
+
+      frameCount++;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Гравітація та рух гравця
+      player.dy += player.gravity;
+      player.y += player.dy;
+
+      if (player.y >= 130) {
+        player.y = 130;
+        player.dy = 0;
+        player.isGrounded = true;
+      }
+
+      // Малюємо Соню
+      ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+
+      // Генерація перешкод (якщо не досягнуто 18 стрибків)
+      if (frameCount % 100 === 0 && jumpsCount < targetJumps) {
+        spawnObstacle();
+      }
+
+      // Рух і малювання квіток
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.x -= obstacleSpeed;
+
+        // Малюємо лілію
+        ctx.drawImage(obstacleImg, obs.x, obs.y, obs.width, obs.height);
+
+        // Перевірка зіткнення
+        if (
+          player.x < obs.x + obs.width - 5 &&
+          player.x + player.width > obs.x + 5 &&
+          player.y < obs.y + obs.height - 5 &&
+          player.y + player.height > obs.y + 5
+        ) {
+          gameOver = true;
+        }
+
+        // Зарахування стрибка
+        if (!obs.cleared && obs.x + obs.width < player.x) {
+          obs.cleared = true;
+          jumpsCount++;
+
+          if (jumpsCount >= targetJumps) {
+            gameWon = true;
+          }
+        }
+
+        if (obs.x + obs.width < 0) {
+          obstacles.splice(i, 1);
+        }
+      }
+
+      // Текст з рахунком
+      ctx.fillStyle = "#535353";
+      ctx.font = "16px sans-serif";
+      ctx.fillText(`Стрибки: ${jumpsCount} / ${targetJumps}`, 10, 25);
+
+      // --- ЕКРАНИ ЗАКІНЧЕННЯ ГРИ ---
+
+      // 1. Програш
+      if (gameOver) {
+        ctx.fillStyle = "#535353";
+        ctx.font = "bold 20px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Ой! Спробуй ще раз!", canvas.width / 2, 80);
+        ctx.font = "14px sans-serif";
+        ctx.fillText("Торкніться екрана, щоб почати спочатку", canvas.width / 2, 110);
+        ctx.textAlign = "left";
+      } 
+      // 2. Перемога (Показ призу Єгера)
+      else if (gameWon) {
+        ctx.fillStyle = "#2e7d32";
+        ctx.font = "bold 22px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("ПЕРЕМОГА! 🏆", canvas.width / 2 - 50, 60);
+
+        ctx.font = "15px sans-serif";
+        ctx.fillStyle = "#333333";
+        ctx.fillText("Твій заслужений приз!", canvas.width / 2 - 50, 90);
+        ctx.font = "13px sans-serif";
+        ctx.fillStyle = "#666666";
+        ctx.fillText("Торкніться екрана, щоб зіграти знову", canvas.width / 2 - 50, 120);
+
+        // Малюємо пляшку Єгера праворуч на екрані перемоги
+        ctx.drawImage(prizeImg, canvas.width - 130, 25, 70, 150);
+
+        ctx.textAlign = "left";
+      } else {
+        requestAnimationFrame(update);
+      }
+    }
+
+    requestAnimationFrame(update);
+  </script>
+</body>
+</html>
